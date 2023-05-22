@@ -1,0 +1,134 @@
+syntax = "proto3";
+
+package goblins;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/NicolasDutronc/goblins";
+
+service GoblinsService {
+  rpc RegisterActivity(RegisterActivityRequest) returns (RegisterActivityResponse) {}
+
+  rpc RegisterWorkflow(RegisterWorkflowRequest) returns (RegisterWorkflowResponse) {}
+
+  rpc ScheduleActivity(ScheduleActivityRequest) returns (ScheduleActivityResponse) {}
+
+  rpc ScheduleWorkflow(ScheduleWorkflowRequest) returns (ScheduleWorkflowResponse) {}
+  
+  rpc GetActivityResult(GetActivityResultRequest) returns (GetActivityResultResponse) {}
+
+  rpc GetWorkflowResult(GetWorkflowResultRequest) returns (GetWorkflowResultResponse) {}
+
+  rpc GetActivityRunHistory(GetActivityRunHistoryRequest) returns (GetActivityRunHistoryResponse) {}
+
+  rpc GetWorkflowRunHistory(GetWorkflowRunHistoryRequest) returns (GetWorkflowRunHistoryResponse) {}
+}
+
+message RegisterActivityRequest {
+  string activity_id = 1;
+}
+
+message RegisterActivityResponse {}
+
+message RegisterWorkflowRequest {
+  string workflow_id = 1;
+}
+
+message RegisterWorkflowResponse {}
+
+message ScheduleActivityRequest {
+  string workflow_id = 1;
+  string workflow_run_id = 2;
+  string activity_id = 3;
+  string activity_run_id = 4;
+  int32 activity_max_retries = 5;
+  int32 activity_current_try = 6;
+  bytes input = 7;
+}
+
+message ScheduleActivityResponse {}
+
+message ScheduleWorkflowRequest {
+  string workflow_id = 1;
+  string workflow_run_id = 2;
+  bytes input = 3;
+}
+
+message ScheduleWorkflowResponse {}
+
+message GetActivityResultRequest {
+  string activity_run_id = 1;
+}
+
+message GetActivityResultResponse {
+  bytes output = 1;
+  string error = 2;
+}
+
+message GetWorkflowResultRequest {
+  string workflow_run_id = 1;
+}
+
+message GetWorkflowResultResponse {
+  bytes output = 1;
+  string error = 2;
+}
+
+message GetActivityRunHistoryRequest {
+  string activity_run_id = 1;
+}
+
+message GetActivityRunHistoryResponse {
+  repeated WorkflowEvent event_list = 1;
+}
+
+message GetWorkflowRunHistoryRequest {
+  string workflow_run_id = 1;
+}
+
+message GetWorkflowRunHistoryResponse {
+  repeated WorkflowEvent event_list = 1;
+}
+
+message WorkflowEvent {
+
+  enum EventType {
+      WORKFLOW_SCHEDULED = 0;
+      WORKFLOW_STARTED = 1;
+      WORKFLOW_FINISHED_IN_ERROR = 2;
+      WORKFLOW_FINISHED_IN_SUCCESS = 3;
+      ACTIVITY_SCHEDULED = 4;
+      ACTIVITY_STARTED = 5;
+      ACTIVITY_FINISHED_IN_ERROR = 6;
+      ACTIVITY_FINISHED_IN_SUCCESS = 7;
+  }
+
+  EventType event_type = 1;
+  google.protobuf.Timestamp emitted_at = 2;
+  string workflow_id = 3;
+  string workflow_run_id = 4;
+  string activity_id = 5;
+  string activity_run_id = 6;
+  int32 activity_max_retries = 7;
+  int32 activity_current_try = 8;
+  bytes input = 9;
+  optional bytes output = 10;
+  optional string error = 11;
+}
+
+message Task {
+
+  enum TaskType {
+      WORKFLOW_TASK = 0;
+      ACTIVITY_TASK = 1;
+  }
+
+  TaskType task_type = 1;
+  string workflow_id = 2;
+  string workflow_run_id = 3;
+  string activity_id = 4;
+  string activity_run_id = 5;
+  int32 activity_max_retries = 6;
+  int32 activity_current_try = 7;
+  bytes input = 8;
+}
