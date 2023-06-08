@@ -1,4 +1,4 @@
-package goblins
+package event
 
 import (
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
@@ -6,6 +6,9 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+var EventTopic = "events"
+
+//go:generate mockery --name EventDispatcher
 type EventDispatcher interface {
 	SendWorkflowScheduledEvent(workflowId, workflowRunId string, input []byte) error
 
@@ -28,7 +31,7 @@ type KafkaEventDispatcher struct {
 	producer *kafka.Producer
 }
 
-func newKafkaEventDispatcher(producer *kafka.Producer) EventDispatcher {
+func NewKafkaEventDispatcher(producer *kafka.Producer) EventDispatcher {
 	return &KafkaEventDispatcher{
 		producer: producer,
 	}
@@ -37,7 +40,7 @@ func newKafkaEventDispatcher(producer *kafka.Producer) EventDispatcher {
 func (k *KafkaEventDispatcher) SendWorkflowScheduledEvent(workflowId string, workflowRunId string, input []byte) error {
 	scheduledEvent := WorkflowEvent{
 		EventType:     WorkflowEvent_WORKFLOW_SCHEDULED,
-		EmittedAt:     timestamppb.Now(),
+		EmittedAt:     timestamppb.New(NewWorkflowEventTimestamp()),
 		WorkflowId:    workflowId,
 		WorkflowRunId: workflowRunId,
 		Input:         input,
@@ -48,7 +51,7 @@ func (k *KafkaEventDispatcher) SendWorkflowScheduledEvent(workflowId string, wor
 func (k *KafkaEventDispatcher) SendWorkflowStartedEvent(workflowId string, workflowRunId string, input []byte) error {
 	scheduledEvent := WorkflowEvent{
 		EventType:     WorkflowEvent_WORKFLOW_STARTED,
-		EmittedAt:     timestamppb.Now(),
+		EmittedAt:     timestamppb.New(NewWorkflowEventTimestamp()),
 		WorkflowId:    workflowId,
 		WorkflowRunId: workflowRunId,
 		Input:         input,
@@ -60,7 +63,7 @@ func (k *KafkaEventDispatcher) SendWorkflowFinishedInErrorEvent(workflowId strin
 	errString := workflowError.Error()
 	workflowErrorEvent := WorkflowEvent{
 		EventType:     WorkflowEvent_WORKFLOW_FINISHED_IN_ERROR,
-		EmittedAt:     timestamppb.Now(),
+		EmittedAt:     timestamppb.New(NewWorkflowEventTimestamp()),
 		WorkflowId:    workflowId,
 		WorkflowRunId: workflowRunId,
 		Input:         input,
@@ -72,7 +75,7 @@ func (k *KafkaEventDispatcher) SendWorkflowFinishedInErrorEvent(workflowId strin
 func (k *KafkaEventDispatcher) SendWorkflowFinishedInSuccessEvent(workflowId string, workflowRunId string, input []byte, output []byte) error {
 	workflowSuccessEvent := WorkflowEvent{
 		EventType:     WorkflowEvent_WORKFLOW_FINISHED_IN_SUCCESS,
-		EmittedAt:     timestamppb.Now(),
+		EmittedAt:     timestamppb.New(NewWorkflowEventTimestamp()),
 		WorkflowId:    workflowId,
 		WorkflowRunId: workflowRunId,
 		Input:         input,
@@ -84,7 +87,7 @@ func (k *KafkaEventDispatcher) SendWorkflowFinishedInSuccessEvent(workflowId str
 func (k *KafkaEventDispatcher) SendActivityScheduledEvent(workflowId string, workflowRunId string, activityId string, activityRunId string, maxRetries, currentTry int32, input []byte) error {
 	activityScheduledEvent := WorkflowEvent{
 		EventType:          WorkflowEvent_ACTIVITY_SCHEDULED,
-		EmittedAt:          timestamppb.Now(),
+		EmittedAt:          timestamppb.New(NewWorkflowEventTimestamp()),
 		WorkflowId:         workflowId,
 		WorkflowRunId:      workflowRunId,
 		ActivityId:         activityId,
@@ -99,7 +102,7 @@ func (k *KafkaEventDispatcher) SendActivityScheduledEvent(workflowId string, wor
 func (k *KafkaEventDispatcher) SendActivityStartedEvent(workflowId string, workflowRunId string, activityId string, activityRunId string, maxRetries, currentTry int32, input []byte) error {
 	activityStartedEvent := WorkflowEvent{
 		EventType:          WorkflowEvent_ACTIVITY_STARTED,
-		EmittedAt:          timestamppb.Now(),
+		EmittedAt:          timestamppb.New(NewWorkflowEventTimestamp()),
 		WorkflowId:         workflowId,
 		WorkflowRunId:      workflowRunId,
 		ActivityId:         activityId,
@@ -115,7 +118,7 @@ func (k *KafkaEventDispatcher) SendActivityFinishedInErrorEvent(workflowId strin
 	errString := activityError.Error()
 	activityErrorEvent := WorkflowEvent{
 		EventType:          WorkflowEvent_ACTIVITY_FINISHED_IN_ERROR,
-		EmittedAt:          timestamppb.Now(),
+		EmittedAt:          timestamppb.New(NewWorkflowEventTimestamp()),
 		WorkflowId:         workflowId,
 		WorkflowRunId:      workflowRunId,
 		ActivityId:         activityId,
@@ -131,7 +134,7 @@ func (k *KafkaEventDispatcher) SendActivityFinishedInErrorEvent(workflowId strin
 func (k *KafkaEventDispatcher) SendActivityFinishedInSuccessEvent(workflowId string, workflowRunId string, activityId string, activityRunId string, maxRetries, currentTry int32, input []byte, output []byte) error {
 	activitySuccessEvent := WorkflowEvent{
 		EventType:          WorkflowEvent_ACTIVITY_FINISHED_IN_SUCCESS,
-		EmittedAt:          timestamppb.Now(),
+		EmittedAt:          timestamppb.New(NewWorkflowEventTimestamp()),
 		WorkflowId:         workflowId,
 		WorkflowRunId:      workflowRunId,
 		ActivityId:         activityId,
@@ -151,7 +154,7 @@ func (k *KafkaEventDispatcher) sendEventToKafka(event *WorkflowEvent) error {
 	}
 	msg := &kafka.Message{
 		TopicPartition: kafka.TopicPartition{
-			Topic:     &eventsTopic,
+			Topic:     &EventTopic,
 			Partition: kafka.PartitionAny,
 		},
 		Value: serialized,

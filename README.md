@@ -88,5 +88,13 @@ To be honest I don't know the alternatives very well. But Kafka provides data du
 ### Reminder
 
 ```bash
-protoc --go_out=./ --go-grpc_out=./ worker/worker_service.proto
+protoc --go_out=./ --go_opt=paths=source_relative event/event.proto
+```
+
+```bash
+protoc --go_out=./ --go_opt=paths=source_relative task/task.proto
+```
+
+```bash
+protoc --go_out=./ --go_opt=paths=source_relative --go-grpc_out=./ --go-grpc_opt=paths=source_relative goblins_service/goblins_service.proto
 ```

@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package event;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/NicolasDutronc/goblins/shared/event";
+
+message WorkflowEvent {
+
+    enum EventType {
+        WORKFLOW_SCHEDULED = 0;
+        WORKFLOW_STARTED = 1;
+        WORKFLOW_FINISHED_IN_ERROR = 2;
+        WORKFLOW_FINISHED_IN_SUCCESS = 3;
+        ACTIVITY_SCHEDULED = 4;
+        ACTIVITY_STARTED = 5;
+        ACTIVITY_FINISHED_IN_ERROR = 6;
+        ACTIVITY_FINISHED_IN_SUCCESS = 7;
+    }
+  
+    EventType event_type = 1;
+    google.protobuf.Timestamp emitted_at = 2;
+    string workflow_id = 3;
+    string workflow_run_id = 4;
+    string activity_id = 5;
+    string activity_run_id = 6;
+    int32 activity_max_retries = 7;
+    int32 activity_current_try = 8;
+    bytes input = 9;
+    optional bytes output = 10;
+    optional string error = 11;
+  }

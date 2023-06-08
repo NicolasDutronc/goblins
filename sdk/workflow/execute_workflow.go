@@ -8,8 +8,9 @@ import (
 	"log"
 	"time"
 
-	"github.com/NicolasDutronc/goblins"
 	"github.com/NicolasDutronc/goblins/sdk/client"
+	"github.com/NicolasDutronc/goblins/shared/event"
+	"github.com/NicolasDutronc/goblins/shared/goblins_service"
 	"google.golang.org/grpc"
 )
 
@@ -30,8 +31,8 @@ func (f *WorkflowResultFuture[T]) Get(ctx context.Context, timeout time.Duration
 
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	client := goblins.NewGoblinsServiceClient(f.conn)
-	response, err := client.GetWorkflowResult(ctxWithTimeout, &goblins.GetWorkflowResultRequest{WorkflowRunId: f.workflowRunId})
+	client := goblins_service.NewGoblinsServiceClient(f.conn)
+	response, err := client.GetWorkflowResult(ctxWithTimeout, &goblins_service.GetWorkflowResultRequest{WorkflowRunId: f.workflowRunId})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -50,22 +51,22 @@ func (f *WorkflowResultFuture[T]) Get(ctx context.Context, timeout time.Duration
 
 // ExecuteWorkflow
 func ExecuteWorkflow[IN, OUT any](ctx context.Context, c *client.GoblinsClient, workflowId, workflowRunId string, input IN) *WorkflowResultFuture[OUT] {
-	client := goblins.NewGoblinsServiceClient(c.Conn)
+	client := goblins_service.NewGoblinsServiceClient(c.Conn)
 
-	workflowHistory, err := client.GetWorkflowRunHistory(ctx, &goblins.GetWorkflowRunHistoryRequest{WorkflowRunId: workflowRunId})
+	workflowHistory, err := client.GetWorkflowRunHistory(ctx, &goblins_service.GetWorkflowRunHistoryRequest{WorkflowRunId: workflowRunId})
 	if err != nil {
 		return &WorkflowResultFuture[OUT]{
 			isReady: true,
 			err:     errors.Join(fmt.Errorf("could not get workflow run history for workflow (workflow_id: %s, workflow_run_id: %s)", workflowId, workflowRunId), err),
 		}
 	}
-	for _, event := range workflowHistory.EventList {
-		if event.EventType == goblins.WorkflowEvent_WORKFLOW_FINISHED_IN_SUCCESS {
+	for _, workflowEvent := range workflowHistory.EventList {
+		if workflowEvent.EventType == event.WorkflowEvent_WORKFLOW_FINISHED_IN_SUCCESS {
 			var output OUT
-			if err := json.Unmarshal(event.Output, &output); err != nil {
+			if err := json.Unmarshal(workflowEvent.Output, &output); err != nil {
 				return &WorkflowResultFuture[OUT]{
 					isReady: true,
-					err:     errors.Join(fmt.Errorf("output is not json serializable : %v", event.Output), err),
+					err:     errors.Join(fmt.Errorf("output is not json serializable : %v", workflowEvent.Output), err),
 				}
 			}
 
@@ -84,7 +85,7 @@ func ExecuteWorkflow[IN, OUT any](ctx context.Context, c *client.GoblinsClient, 
 		}
 	}
 
-	if _, err := client.ScheduleWorkflow(ctx, &goblins.ScheduleWorkflowRequest{
+	if _, err := client.ScheduleWorkflow(ctx, &goblins_service.ScheduleWorkflowRequest{
 		WorkflowId:    workflowId,
 		WorkflowRunId: workflowRunId,
 		Input:         inputBytes,

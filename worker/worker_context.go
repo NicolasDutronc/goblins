@@ -1,8 +1,10 @@
-package goblins
+package worker
 
 import (
 	"context"
 
+	"github.com/NicolasDutronc/goblins/shared/event"
+	"github.com/NicolasDutronc/goblins/shared/task"
 	"google.golang.org/grpc"
 )
 
@@ -14,12 +16,12 @@ const (
 )
 
 type workerContext struct {
-	registry        registry
+	registry        Registry
 	conn            *grpc.ClientConn
-	eventDispatcher EventDispatcher
+	eventDispatcher event.EventDispatcher
 }
 
-func (w *workerContext) GetRegistry() registry {
+func (w *workerContext) GetRegistry() Registry {
 	return w.registry
 }
 
@@ -27,16 +29,16 @@ func (w *workerContext) GetClientConn() *grpc.ClientConn {
 	return w.conn
 }
 
-func (w *workerContext) GetEventDispatcher() EventDispatcher {
+func (w *workerContext) GetEventDispatcher() event.EventDispatcher {
 	return w.eventDispatcher
 }
 
-func GetWorkflowTaskFromContext(ctx context.Context) *Task {
+func GetWorkflowTaskFromContext(ctx context.Context) *task.Task {
 	if ctx.Err() != nil {
 		// context is done
 		return nil
 	}
-	task, ok := ctx.Value(contextTaskKey).(*Task)
+	task, ok := ctx.Value(contextTaskKey).(*task.Task)
 	if !ok {
 		return nil
 	}

@@ -25,8 +25,8 @@ func main() {
 		error text,
 		input blob,
 		output blob,
-		PRIMARY KEY ((workflow_run_id, activity_run_id), emitted_instant)
-	) WITH CLUSTERING ORDER BY (emitted_instant DESC)`)
+		PRIMARY KEY ((workflow_run_id), activity_run_id, emitted_instant)
+	) WITH CLUSTERING ORDER BY (activity_run_id ASC, emitted_instant DESC)`)
 
 	dropActivitiesTable := session.Query("DROP TABLE IF EXISTS goblins.activities")
 	createActivitiesTable := session.Query(`CREATE TABLE goblins.activities (

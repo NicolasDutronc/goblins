@@ -1,26 +1,29 @@
-package goblins
+package task
 
 import (
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"google.golang.org/protobuf/proto"
 )
 
-type taskDispatcher interface {
-	sendActivityTask(workflowId, workflowRunId, activityId, activityRunId string, maxRetry, currentTry int32, input []byte) error
-	sendWorkflowTask(workflowId, workflowRunId string, input []byte) error
+var TaskTopic = "tasks"
+
+//go:generate mockery --name TaskDispatcher
+type TaskDispatcher interface {
+	SendActivityTask(workflowId, workflowRunId, activityId, activityRunId string, maxRetry, currentTry int32, input []byte) error
+	SendWorkflowTask(workflowId, workflowRunId string, input []byte) error
 }
 
-type kafkaTaskDispatcher struct {
+type KafkaTaskDispatcher struct {
 	producer *kafka.Producer
 }
 
-func newKafkaTaskDispatcher(producer *kafka.Producer) taskDispatcher {
-	return &kafkaTaskDispatcher{
+func NewKafkaTaskDispatcher(producer *kafka.Producer) TaskDispatcher {
+	return &KafkaTaskDispatcher{
 		producer,
 	}
 }
 
-func (k *kafkaTaskDispatcher) sendActivityTask(workflowId string, workflowRunId string, activityId string, activityRunId string, maxRetries, currentTry int32, input []byte) error {
+func (k *KafkaTaskDispatcher) SendActivityTask(workflowId string, workflowRunId string, activityId string, activityRunId string, maxRetries, currentTry int32, input []byte) error {
 	activityTask := &Task{
 		TaskType:           Task_ACTIVITY_TASK,
 		WorkflowId:         workflowId,
@@ -35,7 +38,7 @@ func (k *kafkaTaskDispatcher) sendActivityTask(workflowId string, workflowRunId 
 	return k.sendTaskToKafka(activityTask)
 }
 
-func (k *kafkaTaskDispatcher) sendWorkflowTask(workflowId string, workflowRunId string, input []byte) error {
+func (k *KafkaTaskDispatcher) SendWorkflowTask(workflowId string, workflowRunId string, input []byte) error {
 	workflowTask := &Task{
 		TaskType:      Task_WORKFLOW_TASK,
 		WorkflowId:    workflowId,
@@ -46,14 +49,14 @@ func (k *kafkaTaskDispatcher) sendWorkflowTask(workflowId string, workflowRunId 
 	return k.sendTaskToKafka(workflowTask)
 }
 
-func (k *kafkaTaskDispatcher) sendTaskToKafka(task *Task) error {
+func (k *KafkaTaskDispatcher) sendTaskToKafka(task *Task) error {
 	serialized, err := proto.Marshal(task)
 	if err != nil {
 		return err
 	}
 	msg := &kafka.Message{
 		TopicPartition: kafka.TopicPartition{
-			Topic:     &tasksTopic,
+			Topic:     &TaskTopic,
 			Partition: kafka.PartitionAny,
 		},
 		Value: serialized,

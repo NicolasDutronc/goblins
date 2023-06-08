@@ -7,8 +7,9 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/NicolasDutronc/goblins"
+	"github.com/NicolasDutronc/goblins/sdk/worker"
 	"github.com/NicolasDutronc/goblins/sdk/workflow"
+
 	"github.com/google/uuid"
 )
 
@@ -30,7 +31,7 @@ type GreetWorkflowOutput struct {
 
 func main() {
 	ctx := context.Background()
-	worker, err := goblins.NewWorker("example", goblins.NewInMemoryRegistry(), 10, 5, "localhost:9092", "localhost:9075")
+	worker, err := worker.CreateWorker("example", 10, 5, "localhost:9092", "localhost:9075")
 	if err != nil {
 		log.Fatalln(err)
 	}

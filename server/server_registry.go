@@ -1,4 +1,4 @@
-package goblins
+package server
 
 import (
 	"context"

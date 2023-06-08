@@ -1,4 +1,4 @@
-package goblins
+package eventloop
 
 import (
 	"context"
@@ -8,38 +8,47 @@ import (
 	"sync"
 	"time"
 
+	"github.com/NicolasDutronc/goblins/shared/event"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/proto"
 )
 
-type eventHandler interface {
-	handleEvent(context.Context, *WorkflowEvent)
+type EventHandler interface {
+	HandleEvent(context.Context, *event.WorkflowEvent)
 }
 
-type eventHandlerFunc func(context.Context, *WorkflowEvent)
+type EventHandlerFunc func(context.Context, *event.WorkflowEvent)
 
-func (f eventHandlerFunc) handleEvent(ctx context.Context, e *WorkflowEvent) {
+func (f EventHandlerFunc) HandleEvent(ctx context.Context, e *event.WorkflowEvent) {
 	f(ctx, e)
 }
 
-type eventLoop struct {
+//go:generate mockery --name EventLoop
+type EventLoop interface {
+	RegisterSystemHandler(handler EventHandler) func()
+	RegisterHandler(id uuid.UUID, callback EventHandler)
+	UnregisterHandler(id uuid.UUID)
+	Run(ctx context.Context) error
+}
+
+type KafkaEventLoop struct {
 	consumer       *kafka.Consumer
-	systemHandlers []eventHandler
-	handlers       map[uuid.UUID]eventHandler
+	systemHandlers []EventHandler
+	handlers       map[uuid.UUID]EventHandler
 	handlersMutex  sync.Mutex
 }
 
-func newEventLoop(consumer *kafka.Consumer) *eventLoop {
-	return &eventLoop{
+func NewKafkaEventLoop(consumer *kafka.Consumer) EventLoop {
+	return &KafkaEventLoop{
 		consumer:       consumer,
-		systemHandlers: []eventHandler{},
-		handlers:       map[uuid.UUID]eventHandler{},
+		systemHandlers: []EventHandler{},
+		handlers:       map[uuid.UUID]EventHandler{},
 		handlersMutex:  sync.Mutex{},
 	}
 }
 
-func (e *eventLoop) registerSystemHandler(handler eventHandler) func() {
+func (e *KafkaEventLoop) RegisterSystemHandler(handler EventHandler) func() {
 	e.handlersMutex.Lock()
 	index := len(e.systemHandlers)
 	e.systemHandlers = append(e.systemHandlers, handler)
@@ -52,7 +61,7 @@ func (e *eventLoop) registerSystemHandler(handler eventHandler) func() {
 	}
 }
 
-func (e *eventLoop) RegisterHandler(id uuid.UUID, callback eventHandler) {
+func (e *KafkaEventLoop) RegisterHandler(id uuid.UUID, callback EventHandler) {
 	begin := time.Now()
 	e.handlersMutex.Lock()
 	e.handlers[id] = callback
@@ -60,7 +69,7 @@ func (e *eventLoop) RegisterHandler(id uuid.UUID, callback eventHandler) {
 	log.Printf("handler registration took %v", time.Since(begin))
 }
 
-func (e *eventLoop) UnregisterHandler(id uuid.UUID) {
+func (e *KafkaEventLoop) UnregisterHandler(id uuid.UUID) {
 	begin := time.Now()
 	e.handlersMutex.Lock()
 	delete(e.handlers, id)
@@ -68,9 +77,9 @@ func (e *eventLoop) UnregisterHandler(id uuid.UUID) {
 	log.Printf("handler unregistration took %v", time.Since(begin))
 }
 
-func (e *eventLoop) run(ctx context.Context) error {
+func (e *KafkaEventLoop) Run(ctx context.Context) error {
 	log.Println("event loop started")
-	if err := e.consumer.Subscribe(eventsTopic, nil); err != nil {
+	if err := e.consumer.Subscribe(event.EventTopic, nil); err != nil {
 		return errors.Join(fmt.Errorf("worker could not subscribe to event topic"), err)
 	}
 
@@ -91,7 +100,7 @@ func (e *eventLoop) run(ctx context.Context) error {
 				continue
 			}
 
-			var event WorkflowEvent
+			var event event.WorkflowEvent
 			if err := proto.Unmarshal(msg.Value, &event); err != nil {
 				log.Printf("failed to deserialize %v : %v\n", msg, err)
 				continue
@@ -100,10 +109,10 @@ func (e *eventLoop) run(ctx context.Context) error {
 			begin := time.Now()
 			e.handlersMutex.Lock()
 			for _, handler := range e.systemHandlers {
-				handler.handleEvent(ctx, &event)
+				handler.HandleEvent(ctx, &event)
 			}
 			for _, callback := range e.handlers {
-				callback.handleEvent(ctx, &event)
+				callback.HandleEvent(ctx, &event)
 			}
 			e.handlersMutex.Unlock()
 			log.Printf("executing handler took %v", time.Since(begin))
