@@ -85,16 +85,26 @@ The `events` table is an append only table and the request patterns are known in
 
 To be honest I don't know the alternatives very well. But Kafka provides data durability and makes it easy to balance the load between workers thanks to consumer groups.
 
+### Testing
+
+This project uses [mockery](https://vektra.github.io/mockery/) to generate mocks for unit testing.
+
+Run `go generate ./...` to regenerate mocks.
+
+Run `go test ./...` to run unit tests.
+
+Run `go test ./... -tags integration` to run all tests including integration tests.
+
 ### Reminder
 
 ```bash
-protoc --go_out=./ --go_opt=paths=source_relative event/event.proto
+protoc --go_out=./ --go_opt=paths=source_relative shared/event/event.proto
 ```
 
 ```bash
-protoc --go_out=./ --go_opt=paths=source_relative task/task.proto
+protoc --go_out=./ --go_opt=paths=source_relative shared/task/task.proto
 ```
 
 ```bash
-protoc --go_out=./ --go_opt=paths=source_relative --go-grpc_out=./ --go-grpc_opt=paths=source_relative goblins_service/goblins_service.proto
+protoc --go_out=./ --go_opt=paths=source_relative --go-grpc_out=./ --go-grpc_opt=paths=source_relative shared/goblins_service/goblins_service.proto
 ```
