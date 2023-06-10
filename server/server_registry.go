@@ -6,48 +6,49 @@ import (
 	"github.com/gocql/gocql"
 )
 
-type serverRegistry interface {
-	registerActivity(ctx context.Context, activityId string) error
-	registerWorkflow(ctx context.Context, workflowId string) error
-	getAllActivities(ctx context.Context) ([]string, error)
-	getAllWorkflows(ctx context.Context) ([]string, error)
+//go:generate mockery --name ServerRegistry
+type ServerRegistry interface {
+	RegisterActivity(ctx context.Context, activityId string) error
+	RegisterWorkflow(ctx context.Context, workflowId string) error
+	GetAllActivities(ctx context.Context) ([]string, error)
+	GetAllWorkflows(ctx context.Context) ([]string, error)
 }
 
-type cassandraServerRegistry struct {
+type CassandraServerRegistry struct {
 	session *gocql.Session
 }
 
-func newCassandraServerRegistry(hosts ...string) (serverRegistry, error) {
+func NewCassandraServerRegistry(hosts ...string) (ServerRegistry, error) {
 	cluster := gocql.NewCluster(hosts...)
 	cluster.Keyspace = "goblins"
 	session, err := cluster.CreateSession()
 	if err != nil {
 		return nil, err
 	}
-	return &cassandraServerRegistry{
+	return &CassandraServerRegistry{
 		session,
 	}, nil
 }
 
-func (r *cassandraServerRegistry) registerActivity(ctx context.Context, activityId string) error {
+func (r *CassandraServerRegistry) RegisterActivity(ctx context.Context, activityId string) error {
 	return r.session.Query(`INSERT INTO activities (activity_id) VALUES (?)`, activityId).WithContext(ctx).Exec()
 }
 
-func (r *cassandraServerRegistry) registerWorkflow(ctx context.Context, workflowId string) error {
+func (r *CassandraServerRegistry) RegisterWorkflow(ctx context.Context, workflowId string) error {
 	return r.session.Query(`INSERT INTO workflows (workflow_id) VALUES (?)`, workflowId).WithContext(ctx).Exec()
 }
 
-func (r *cassandraServerRegistry) getAllActivities(ctx context.Context) ([]string, error) {
+func (r *CassandraServerRegistry) GetAllActivities(ctx context.Context) ([]string, error) {
 	scanner := r.session.Query(`SELECT activity_id FROM activities`).WithContext(ctx).Iter().Scanner()
 	return r.scan(ctx, scanner)
 }
 
-func (r *cassandraServerRegistry) getAllWorkflows(ctx context.Context) ([]string, error) {
+func (r *CassandraServerRegistry) GetAllWorkflows(ctx context.Context) ([]string, error) {
 	scanner := r.session.Query(`SELECT workflow_id FROM workflows`).WithContext(ctx).Iter().Scanner()
 	return r.scan(ctx, scanner)
 }
 
-func (r *cassandraServerRegistry) scan(ctx context.Context, scanner gocql.Scanner) ([]string, error) {
+func (r *CassandraServerRegistry) scan(ctx context.Context, scanner gocql.Scanner) ([]string, error) {
 	ids := []string{}
 	for scanner.Next() {
 		select {
