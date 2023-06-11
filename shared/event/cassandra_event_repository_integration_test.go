@@ -1,5 +1,3 @@
-//go:build integration
-
 package event_test
 
 import (
@@ -22,11 +20,10 @@ import (
 
 type CassandraEventRepositoryTestSuite struct {
 	suite.Suite
-	container    *dockertest.Resource
-	adminSession *gocql.Session
-	appSession   *gocql.Session
-	repository   event.EventRepository
-	pool         *dockertest.Pool
+	container  *dockertest.Resource
+	appSession *gocql.Session
+	repository event.EventRepository
+	pool       *dockertest.Pool
 }
 
 func (s *CassandraEventRepositoryTestSuite) SetupSuite() {
@@ -55,6 +52,8 @@ func (s *CassandraEventRepositoryTestSuite) SetupSuite() {
 	if err != nil {
 		s.FailNow(err.Error())
 	}
+
+	var adminSession *gocql.Session
 	port, _ := strconv.Atoi(resource.GetPort("9042/tcp"))
 	cassandraUrl := fmt.Sprintf("localhost:%s", resource.GetPort("9042/tcp"))
 	var cluster *gocql.ClusterConfig
@@ -63,7 +62,7 @@ func (s *CassandraEventRepositoryTestSuite) SetupSuite() {
 		cluster.ConnectTimeout = time.Second * 10
 		cluster.ProtoVersion = 4
 		cluster.Port = port
-		s.adminSession, err = cluster.CreateSession()
+		adminSession, err = cluster.CreateSession()
 		if err != nil {
 			return err
 		}
@@ -71,11 +70,12 @@ func (s *CassandraEventRepositoryTestSuite) SetupSuite() {
 	}); err != nil {
 		s.Fail(err.Error())
 	}
+	defer adminSession.Close()
 	log.Println("cassandra is ready")
 	s.container = resource
 
-	createKeyspace := s.adminSession.Query("CREATE KEYSPACE goblins WITH replication = {'class': 'SimpleStrategy', 'replication_factor' : 1};")
-	createEventsTable := s.adminSession.Query(`CREATE TABLE goblins.events (
+	createKeyspace := adminSession.Query("CREATE KEYSPACE goblins WITH replication = {'class': 'SimpleStrategy', 'replication_factor' : 1};")
+	createEventsTable := adminSession.Query(`CREATE TABLE goblins.events (
 		event_type tinyint,
 		emitted_instant timestamp,
 		workflow_id text,
@@ -106,7 +106,6 @@ func (s *CassandraEventRepositoryTestSuite) SetupSuite() {
 }
 
 func (s *CassandraEventRepositoryTestSuite) TearDownSuite() {
-	s.adminSession.Close()
 	s.appSession.Close()
 	s.container.Close()
 	s.pool.RemoveContainerByName("cassandra")
@@ -150,6 +149,9 @@ func (s *CassandraEventRepositoryTestSuite) TestStoreAndGetEvents() {
 	assert.Equal(s.T(), activityEvent, activityEvents[0])
 }
 
-func TestCassandraEventRepositoryTestSuite(t *testing.T) {
+func TestCassandraEventRepositoryIntegration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
 	suite.Run(t, new(CassandraEventRepositoryTestSuite))
 }

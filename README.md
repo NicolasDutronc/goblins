@@ -91,9 +91,11 @@ This project uses [mockery](https://vektra.github.io/mockery/) to generate mocks
 
 Run `go generate ./...` to regenerate mocks.
 
-Run `go test ./...` to run unit tests.
+Run `go test ./... -short` to run unit tests.
 
-Run `go test ./... -tags integration` to run all tests including integration tests.
+Run `go test ./... -run Integration` to run integration tests.
+
+Run `go test ./... -run EndToEnd` to run end to end tests.
 
 ### Reminder
 
