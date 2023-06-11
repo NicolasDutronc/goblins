@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	github.com/confluentinc/confluent-kafka-go/v2 v2.1.1
+	github.com/go-zookeeper/zk v1.0.3
 	github.com/gocql/gocql v1.4.0
 	github.com/google/uuid v1.3.0
 	github.com/ory/dockertest/v3 v3.10.0
