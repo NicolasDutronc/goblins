@@ -56,7 +56,7 @@ func (t *EndToEndTest) SetupSuite() {
 	zookeeperOptions := &dockertest.RunOptions{
 		Repository: "confluentinc/cp-zookeeper",
 		Tag:        "7.4.0",
-		Name:       "zookeeper",
+		Name:       fmt.Sprintf("zookeeper-%s", uuid.New().String()),
 		Env: []string{
 			"ZOOKEEPER_CLIENT_PORT=2181",
 		},
@@ -67,7 +67,7 @@ func (t *EndToEndTest) SetupSuite() {
 	kafkaOptions := &dockertest.RunOptions{
 		Repository: "confluentinc/cp-kafka",
 		Tag:        "7.4.0",
-		Name:       "kafka",
+		Name:       fmt.Sprintf("kafka-%s", uuid.New().String()),
 		Env: []string{
 			"KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181",
 			"KAFKA_ADVERTISED_LISTENERS=INSIDE://kafka:9093,OUTSIDE://localhost:9092",
@@ -84,7 +84,7 @@ func (t *EndToEndTest) SetupSuite() {
 
 	wg := &sync.WaitGroup{}
 
-	// start cassandra
+	// start cassandra in parallel
 	wg.Add(1)
 	go t.setupCassandra(pool, wg, t.networkId)
 
@@ -173,7 +173,7 @@ func (t *EndToEndTest) setupCassandra(pool *dockertest.Pool, wg *sync.WaitGroup,
 	cassandraOptions := &dockertest.RunOptions{
 		Repository:   "cassandra",
 		Tag:          "4",
-		Name:         "cassandra",
+		Name:         fmt.Sprintf("cassandra-%s", uuid.New().String()),
 		ExposedPorts: []string{"9042"},
 		Mounts: []string{
 			fmt.Sprintf("%s/../cassandra_config/cassandra.yaml:/etc/cassandra/cassandra.yaml", pwd),
@@ -246,12 +246,15 @@ func (t *EndToEndTest) setupCassandra(pool *dockertest.Pool, wg *sync.WaitGroup,
 }
 
 func (t *EndToEndTest) TearDownSuite() {
+	cassandraName := t.cassandraContainer.Container.Name
+	kafkaName := t.kafkaContainer.Container.Name
+	zookeeperName := t.zookeeperContainer.Container.Name
 	t.cassandraContainer.Close()
 	t.kafkaContainer.Close()
 	t.zookeeperContainer.Close()
-	t.pool.RemoveContainerByName("cassandra")
-	t.pool.RemoveContainerByName("zookeeper")
-	t.pool.RemoveContainerByName("kafka")
+	t.pool.RemoveContainerByName(cassandraName)
+	t.pool.RemoveContainerByName(zookeeperName)
+	t.pool.RemoveContainerByName(kafkaName)
 	t.pool.Client.RemoveNetwork(t.networkId)
 }
 

@@ -11,6 +11,7 @@ import (
 
 	"github.com/NicolasDutronc/goblins/shared/event"
 	"github.com/gocql/gocql"
+	"github.com/google/uuid"
 	"github.com/ory/dockertest/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -41,7 +42,7 @@ func (s *CassandraEventRepositoryTestSuite) SetupSuite() {
 	options := &dockertest.RunOptions{
 		Repository: "cassandra",
 		Tag:        "4",
-		Name:       "cassandra",
+		Name:       fmt.Sprintf("cassandra-%s", uuid.New().String()),
 		Mounts: []string{
 			fmt.Sprintf("%s/../../cassandra_config/cassandra.yaml:/etc/cassandra/cassandra.yaml", pwd),
 			fmt.Sprintf("%s/../../cassandra_config/cassandra-env.sh:/etc/cassadra/cassandra-env.sh", pwd),
@@ -107,8 +108,9 @@ func (s *CassandraEventRepositoryTestSuite) SetupSuite() {
 
 func (s *CassandraEventRepositoryTestSuite) TearDownSuite() {
 	s.appSession.Close()
+	containerName := s.container.Container.Name
 	s.container.Close()
-	s.pool.RemoveContainerByName("cassandra")
+	s.pool.RemoveContainerByName(containerName)
 }
 
 func (s *CassandraEventRepositoryTestSuite) TestStoreAndGetEvents() {
