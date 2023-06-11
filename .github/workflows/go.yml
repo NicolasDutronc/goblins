@@ -23,5 +23,11 @@ jobs:
       - name: Build
         run: go build -v ./...
 
-      - name: Test
-        run: go test -v ./...
+      - name: Unit tests
+        run: go test ./... -v -short
+
+      - name: Integration tests
+        run: go test ./... -v -run Integration
+
+      - name: End to end tests
+        run: go test ./... -v -run EndToEnd
