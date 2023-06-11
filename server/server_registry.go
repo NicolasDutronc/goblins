@@ -18,6 +18,12 @@ type CassandraServerRegistry struct {
 	session *gocql.Session
 }
 
+func NewCassandraServerRegistryFromSession(session *gocql.Session) ServerRegistry {
+	return &CassandraServerRegistry{
+		session,
+	}
+}
+
 func NewCassandraServerRegistry(hosts ...string) (ServerRegistry, error) {
 	cluster := gocql.NewCluster(hosts...)
 	cluster.Keyspace = "goblins"
