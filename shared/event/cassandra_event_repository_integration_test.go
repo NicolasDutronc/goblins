@@ -75,7 +75,10 @@ func (s *CassandraEventRepositoryTestSuite) SetupSuite() {
 	log.Println("cassandra is ready")
 	s.container = resource
 
+	dropKeyspace := adminSession.Query("DROP KEYSPACE IF EXISTS goblins")
 	createKeyspace := adminSession.Query("CREATE KEYSPACE goblins WITH replication = {'class': 'SimpleStrategy', 'replication_factor' : 1};")
+
+	dropEventsTable := adminSession.Query("DROP TABLE IF EXISTS goblins.events")
 	createEventsTable := adminSession.Query(`CREATE TABLE goblins.events (
 		event_type tinyint,
 		emitted_instant timestamp,
@@ -91,6 +94,12 @@ func (s *CassandraEventRepositoryTestSuite) SetupSuite() {
 		PRIMARY KEY ((workflow_run_id), activity_run_id, emitted_instant)
 	) WITH CLUSTERING ORDER BY (activity_run_id ASC, emitted_instant DESC)`)
 
+	if err := dropEventsTable.Exec(); err != nil {
+		panic(err)
+	}
+	if err := dropKeyspace.Exec(); err != nil {
+		panic(err)
+	}
 	if err := createKeyspace.Exec(); err != nil {
 		s.Fail(err.Error())
 	}

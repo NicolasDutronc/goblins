@@ -207,7 +207,10 @@ func (t *EndToEndTest) setupCassandra(pool *dockertest.Pool, wg *sync.WaitGroup,
 	t.cassandraContainer = cassandra
 
 	// setup cassandra
+	dropKeyspace := cassandraAdminSession.Query("DROP KEYSPACE IF EXISTS goblins")
 	createKeyspace := cassandraAdminSession.Query("CREATE KEYSPACE goblins WITH replication = {'class': 'SimpleStrategy', 'replication_factor' : 1};")
+
+	dropEventsTable := cassandraAdminSession.Query("DROP TABLE IF EXISTS goblins.events")
 	createEventsTable := cassandraAdminSession.Query(`CREATE TABLE goblins.events (
 		event_type tinyint,
 		emitted_instant timestamp,
@@ -222,12 +225,29 @@ func (t *EndToEndTest) setupCassandra(pool *dockertest.Pool, wg *sync.WaitGroup,
 		output blob,
 		PRIMARY KEY ((workflow_run_id), activity_run_id, emitted_instant)
 	) WITH CLUSTERING ORDER BY (activity_run_id ASC, emitted_instant DESC)`)
+
+	dropActivitiesTable := cassandraAdminSession.Query("DROP TABLE IF EXISTS goblins.activities")
 	createActivitiesTable := cassandraAdminSession.Query(`CREATE TABLE goblins.activities (
 		activity_id text PRIMARY KEY
 	)`)
+
+	dropWorkflowsTable := cassandraAdminSession.Query("DROP TABLE IF EXISTS goblins.workflows")
 	createWorkflowsTable := cassandraAdminSession.Query(`CREATE TABLE goblins.workflows (
 		workflow_id text PRIMARY KEY
 	)`)
+
+	if err := dropEventsTable.Exec(); err != nil {
+		panic(err)
+	}
+	if err := dropActivitiesTable.Exec(); err != nil {
+		panic(err)
+	}
+	if err := dropWorkflowsTable.Exec(); err != nil {
+		panic(err)
+	}
+	if err := dropKeyspace.Exec(); err != nil {
+		panic(err)
+	}
 
 	if err := createKeyspace.Exec(); err != nil {
 		t.Fail(err.Error(), "could not create keyspace")
