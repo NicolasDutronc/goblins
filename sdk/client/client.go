@@ -10,7 +10,7 @@ type GoblinsClient struct {
 }
 
 func Dial(goblinsServer string) (*GoblinsClient, error) {
-	conn, err := grpc.Dial(goblinsServer, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.Dial(goblinsServer, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
 	if err != nil {
 		return nil, err
 	}
