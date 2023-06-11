@@ -53,10 +53,11 @@ func (t *EndToEndTest) SetupSuite() {
 	}
 	t.networkId = network.ID
 
+	zookeeperName := fmt.Sprintf("zookeeper-%s", uuid.New().String())
 	zookeeperOptions := &dockertest.RunOptions{
 		Repository: "confluentinc/cp-zookeeper",
 		Tag:        "7.4.0",
-		Name:       fmt.Sprintf("zookeeper-%s", uuid.New().String()),
+		Name:       zookeeperName,
 		Env: []string{
 			"ZOOKEEPER_CLIENT_PORT=2181",
 		},
@@ -69,7 +70,7 @@ func (t *EndToEndTest) SetupSuite() {
 		Tag:        "7.4.0",
 		Name:       fmt.Sprintf("kafka-%s", uuid.New().String()),
 		Env: []string{
-			"KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181",
+			fmt.Sprintf("KAFKA_ZOOKEEPER_CONNECT=%s:2181", zookeeperName),
 			"KAFKA_ADVERTISED_LISTENERS=INSIDE://kafka:9093,OUTSIDE://localhost:9092",
 			"KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT",
 			"KAFKA_INTER_BROKER_LISTENER_NAME=INSIDE",
