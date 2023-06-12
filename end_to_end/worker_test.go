@@ -28,6 +28,18 @@ type GreetWorkflowOutput struct {
 	Result string
 }
 
+type ErrorActivityInput struct {
+}
+
+type ErrorActivityOutput struct {
+}
+
+type ErrorWorkflowInput struct {
+}
+
+type ErrorWorkflowOutput struct {
+}
+
 func RunWorker(ctx context.Context, kafkaUrl, serverUrl string) error {
 	worker, err := worker.CreateWorker("example", 10, 5, kafkaUrl, serverUrl)
 	if err != nil {
@@ -39,6 +51,14 @@ func RunWorker(ctx context.Context, kafkaUrl, serverUrl string) error {
 	}
 
 	if err := worker.RegisterWorkflow(ctx, "greet", GreetWorkflow); err != nil {
+		log.Fatalln(err)
+	}
+
+	if err := worker.RegisterActivity(ctx, "errorActivity", ErrorActivity); err != nil {
+		log.Fatalln(err)
+	}
+
+	if err := worker.RegisterWorkflow(ctx, "errorWorkflow", ErrorWorkflow); err != nil {
 		log.Fatalln(err)
 	}
 
@@ -70,4 +90,26 @@ func GreetWorkflow(ctx context.Context, name *GreetWorkflowInput) (*GreetWorkflo
 	return &GreetWorkflowOutput{
 		Result: result.Result,
 	}, nil
+}
+
+func ErrorActivity(ctx context.Context, input *ErrorActivityInput) (*ErrorActivityOutput, error) {
+	log.Println("starting activity")
+	return nil, fmt.Errorf("activity error")
+}
+
+func ErrorWorkflow(ctx context.Context, input *ErrorWorkflowInput) (*ErrorWorkflowOutput, error) {
+	log.Println("starting workflow")
+	activityRunId := uuid.New()
+	future := workflow.ExecuteActivity[*ErrorActivityInput, ErrorActivityOutput](ctx, "errorActivity", activityRunId.String(), 3, &ErrorActivityInput{})
+	_, activityErr, err := future.Get(ctx, 60*time.Second)
+	if err != nil {
+		return nil, err
+	}
+
+	if activityErr != nil {
+		log.Printf("activity resulted in error: %v", activityErr)
+		return nil, activityErr
+	}
+
+	return &ErrorWorkflowOutput{}, nil
 }

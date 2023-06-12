@@ -15,6 +15,7 @@ import (
 	"github.com/NicolasDutronc/goblins/server"
 	"github.com/NicolasDutronc/goblins/server/eventloop"
 	"github.com/NicolasDutronc/goblins/shared/event"
+	"github.com/NicolasDutronc/goblins/shared/goblins_service"
 	"github.com/NicolasDutronc/goblins/shared/task"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/go-zookeeper/zk"
@@ -33,6 +34,7 @@ type EndToEndTest struct {
 	kafkaContainer     *dockertest.Resource
 	pool               *dockertest.Pool
 	networkId          string
+	eventRepository    event.EventRepository
 	cancelFunc         context.CancelFunc
 }
 
@@ -164,6 +166,8 @@ func (t *EndToEndTest) SetupSuite() {
 
 	// wait for cassandra
 	wg.Wait()
+
+	t.setupServerAndWorker()
 }
 
 func (t *EndToEndTest) setupCassandra(pool *dockertest.Pool, wg *sync.WaitGroup, networkId string) {
@@ -278,9 +282,10 @@ func (t *EndToEndTest) TearDownSuite() {
 	t.pool.RemoveContainerByName(zookeeperName)
 	t.pool.RemoveContainerByName(kafkaName)
 	t.pool.Client.RemoveNetwork(t.networkId)
+	t.cancelFunc()
 }
 
-func (t *EndToEndTest) SetupTest() {
+func (t *EndToEndTest) setupServerAndWorker() {
 	cassandraUrl := fmt.Sprintf("127.0.0.1:%s", t.cassandraContainer.GetPort("9042/tcp"))
 	cluster := gocql.NewCluster(cassandraUrl)
 	cluster.Keyspace = "goblins"
@@ -308,8 +313,8 @@ func (t *EndToEndTest) SetupTest() {
 	eventDispatcher := event.NewKafkaEventDispatcher(producer)
 	taskDispatcher := task.NewKafkaTaskDispatcher(producer)
 	eventLoop := eventloop.NewKafkaEventLoop(consumer)
-	eventRepository := event.NewCassandraEventRepositoryFromSession(session)
-	loggingEventRepository := event.NewLoggingRepository(eventRepository)
+	t.eventRepository = event.NewCassandraEventRepositoryFromSession(session)
+	loggingEventRepository := event.NewLoggingRepository(t.eventRepository)
 	srv := server.NewGoblinsServer(
 		serverRegistry,
 		eventDispatcher,
@@ -341,10 +346,6 @@ func (t *EndToEndTest) SetupTest() {
 	}()
 }
 
-func (t *EndToEndTest) TearDownTest() {
-	t.cancelFunc()
-}
-
 func (t *EndToEndTest) TestShouldExecuteWorkflow() {
 	ctx := context.Background()
 	client, err := client.Dial("localhost:9075")
@@ -359,6 +360,34 @@ func (t *EndToEndTest) TestShouldExecuteWorkflow() {
 	assert.Nil(t.T(), workflowErr)
 	assert.Nil(t.T(), err)
 	assert.Equal(t.T(), "Hello Green Got", result.Result)
+}
+
+func (t *EndToEndTest) TestShouldRetryActivity() {
+	ctx := context.Background()
+	client, err := client.Dial("localhost:9075")
+	if err != nil {
+		t.FailNow(err.Error(), "could not connect to server")
+	}
+	goblinClient := goblins_service.NewGoblinsServiceClient(client.Conn)
+
+	workflowRunId := uuid.New()
+	log.Printf("WORKFLOW RUN ID: %s", workflowRunId.String())
+	future := workflow.ExecuteWorkflow[*ErrorWorkflowInput, ErrorWorkflowOutput](ctx, client, "errorWorkflow", workflowRunId.String(), &ErrorWorkflowInput{})
+	result, workflowErr, err := future.Get(ctx, 10*time.Second)
+	// fetch workflow history to verify the number of retries
+	history, historyErr := goblinClient.GetWorkflowRunHistory(ctx, &goblins_service.GetWorkflowRunHistoryRequest{WorkflowRunId: workflowRunId.String()})
+	activityScheduledEvents := []*event.WorkflowEvent{}
+	for _, workflowEvent := range history.EventList {
+		if workflowEvent.EventType == event.WorkflowEvent_ACTIVITY_SCHEDULED {
+			activityScheduledEvents = append(activityScheduledEvents, workflowEvent)
+		}
+	}
+
+	assert.Nil(t.T(), result)
+	assert.Nil(t.T(), err)
+	assert.Nil(t.T(), historyErr)
+	assert.NotNil(t.T(), workflowErr)
+	assert.Len(t.T(), activityScheduledEvents, 3)
 }
 
 func TestEndToEnd(t *testing.T) {

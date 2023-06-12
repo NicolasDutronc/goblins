@@ -127,7 +127,6 @@ func ExecuteActivity[IN, OUT any](ctx context.Context, activityId, activityRunId
 		history = &goblins_service.GetActivityRunHistoryResponse{
 			EventList: []*event.WorkflowEvent{},
 		}
-		currentTry = 1
 	}
 
 	for _, activityEvent := range history.EventList {
@@ -151,7 +150,7 @@ func ExecuteActivity[IN, OUT any](ctx context.Context, activityId, activityRunId
 			currentTry = activityEvent.ActivityCurrentTry
 
 			// too many retries, abort
-			if maxRetries <= int(currentTry) {
+			if int(currentTry) > maxRetries {
 				return &ActivityResultFuture[OUT]{
 					isReady:       true,
 					activityRunId: activityEvent.ActivityRunId,
