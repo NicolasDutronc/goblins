@@ -134,7 +134,7 @@ func (w *Worker) Run(ctx context.Context) error {
 			log.Println("stopping consumer loop")
 			log.Println("waiting for goroutines to finish")
 			wg.Wait()
-			return nil
+			return w.consumer.Close()
 		default:
 			msg, err := w.consumer.ReadMessage(10 * time.Millisecond)
 			if err != nil {
