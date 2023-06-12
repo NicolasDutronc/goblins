@@ -27,7 +27,7 @@ func (r *ActivityRetryer) HandleEvent(ctx context.Context, workflowEvent *event.
 		return
 	}
 
-	if workflowEvent.ActivityCurrentTry == workflowEvent.ActivityMaxRetries {
+	if workflowEvent.ActivityCurrentTry > workflowEvent.ActivityMaxRetries {
 		return
 	}
 
@@ -49,7 +49,7 @@ func (r *ActivityRetryer) HandleEvent(ctx context.Context, workflowEvent *event.
 
 	if err := r.taskDispatcher.SendActivityTask(
 		workflowEvent.WorkflowId,
-		workflowEvent.ActivityRunId,
+		workflowEvent.WorkflowRunId,
 		workflowEvent.ActivityId,
 		workflowEvent.ActivityRunId,
 		workflowEvent.ActivityMaxRetries,
