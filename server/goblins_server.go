@@ -31,6 +31,14 @@ func StartServer(ctx context.Context, srv GoblinsServer, port int) error {
 	var opts []grpc.ServerOption
 	grpcServer := grpc.NewServer(opts...)
 	goblins_service.RegisterGoblinsServiceServer(grpcServer, srv)
+
+	go func() {
+		// blocks until the context is cancelled
+		<-ctx.Done()
+		grpcServer.GracefulStop()
+
+	}()
+
 	log.Printf("server starts listening on port %d\n", port)
 	return grpcServer.Serve(listener)
 }
